@@ -1,0 +1,10 @@
+{
+  "AZURE_FILES_CONNECTION_STRING": {
+    "type": "string",
+    "value": "@appsetting('BLOB_CONNECTION_STRING')"
+  },
+  "RECIPIENT_ADDRESS": {
+    "type": "string",
+    "value": "@appsetting('RECIPIENT_ADDRESS')"
+  }
+}

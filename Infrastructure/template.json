@@ -1,0 +1,645 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "subscriptionId": {
+            "type": "String"
+        },
+        "recipientAddress": {
+            "type": "string"
+        },
+        "logicappsName": {
+            "type": "String",
+            "defaultValue": "lalogicappstestjpe01"
+        },
+        "location": {
+            "type": "String",
+            "defaultValue": "[resourceGroup().location]"
+        },
+        "virtualNetworkResourceGroup" : {
+            "type": "string",
+            "defaultValue": "rg-logicapps-test-jpe-01"
+        },
+        "virtualNetworkName": {
+            "type": "string",
+            "defaultValue": "vnet-logicapps-test-jpe-01"
+        },        
+        "privateEndpointSubnetName": {
+            "type": "string",
+            "defaultValue": "snet_vnet-logicapps-test-jpe-01"
+        },
+        "vnetIntegrationSubnetName": {
+            "type": "string",
+            "defaultValue": "snet_vnet-logicapps-test-jpe-02"
+        },
+        "vnetIntegrationSubnetNetworkSecurityGroupName": {
+            "type": "string",
+            "defaultValue": "ng-snet_vnet-logicapps-test-jpe-02"
+        },
+        "natGatewayName": {
+            "type": "string",
+            "defaultValue": "nat-logicapps-test-jpe-01"
+        },
+        "logicappsStorageAccountName": {
+            "type": "String",
+            "defaultValue": "stlogicappstestjpe01"
+        },
+        "logicappsResourceGroup": {
+            "type": "string",
+            "defaultValue": "rg-logicapps-test-jpe-02"
+        },
+        "hostingPlanName": {
+            "type": "string",
+            "defaultValue": "asp-logicassps-test-jpe-01"
+        }
+    },
+    "variables": {
+        "outboundSubnetDeployment": "outboundSubnetDeployment",
+        "inboundPrivateDnsZoneName": "privatelink.azurewebsites.net",
+        "inboundPrivateDnsZoneARecordName": "inboundPrivateDnsZoneARecordName",
+        "privateEndpointStorageFileName": "[format('{0}-file-private-endpoint', parameters('logicappsStorageAccountName'))]",
+        "privateEndpointStorageTableName": "[format('{0}-table-private-endpoint', parameters('logicappsStorageAccountName'))]",
+        "privateEndpointStorageBlobName": "[format('{0}-blob-private-endpoint', parameters('logicappsStorageAccountName'))]",
+        "privateEndpointStorageQueueName": "[format('{0}-queue-private-endpoint', parameters('logicappsStorageAccountName'))]",
+        "privateStorageFileDnsZoneName": "[format('privatelink.file.{0}', environment().suffixes.storage)]",
+        "privateStorageTableDnsZoneName": "[format('privatelink.table.{0}', environment().suffixes.storage)]",
+        "privateStorageBlobDnsZoneName": "[format('privatelink.blob.{0}', environment().suffixes.storage)]",
+        "privateStorageQueueDnsZoneName": "[format('privatelink.queue.{0}', environment().suffixes.storage)]",
+        "vnetPrivatePortsCount": 2,
+        "numberOfWorkers": "1",
+        "workerSizeId": "3",
+        "workerSize": "3",
+        "skuCode": "WS1",
+        "sku": "WorkflowStandard",
+        "netFrameworkVersion": "v6.0",
+        "ftpsState": "FtpsOnly",
+        "use32BitWorkerProcess": false,
+        "connections_office365_name": "office365"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2018-11-01",
+            "name": "[parameters('logicappsName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Web/serverfarms/', parameters('hostingPlanName'))]",
+                "[concat('Microsoft.Storage/storageAccounts/', parameters('logicappsStorageAccountName'))]",
+                "[variables('outboundSubnetDeployment')]",
+                "[format('{0}-link', variables('privateStorageFileDnsZoneName'))]",
+                "[format('{0}-link', variables('privateStorageTableDnsZoneName'))]",
+                "[format('{0}-link', variables('privateStorageBlobDnsZoneName'))]",
+                "[format('{0}-link', variables('privateStorageQueueDnsZoneName'))]",
+                "[concat('Microsoft.Web/connections/', variables('connections_office365_name'))]"
+            ],
+            "tags": {},
+            "kind": "functionapp,workflowapp",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "name": "[parameters('logicappsName')]",
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "FUNCTIONS_EXTENSION_VERSION",
+                            "value": "~4"
+                        },
+                        {
+                            "name": "FUNCTIONS_WORKER_RUNTIME",
+                            "value": "node"
+                        },
+                        {
+                            "name": "WEBSITE_NODE_DEFAULT_VERSION",
+                            "value": "~18"
+                        },
+                        {
+                            "name": "AzureWebJobsStorage",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=',parameters('logicappsStorageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('logicappsStorageAccountName')), '2019-06-01').keys[0].value,';EndpointSuffix=','core.windows.net')]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=',parameters('logicappsStorageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('logicappsStorageAccountName')), '2019-06-01').keys[0].value,';EndpointSuffix=','core.windows.net')]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTSHARE",
+                            "value": "lalogicappstestjpe019e4f"
+                        },
+                        {
+                            "name": "AzureFunctionsJobHost__extensionBundle__id",
+                            "value": "Microsoft.Azure.Functions.ExtensionBundle.Workflows"
+                        },
+                        {
+                            "name": "AzureFunctionsJobHost__extensionBundle__version",
+                            "value": "[1.*, 2.0.0)"
+                        },
+                        {
+                            "name": "APP_KIND",
+                            "value": "workflowApp"
+                        },
+                        {
+                            "name": "OUTLOOK_CONNECTION_RUNTIME_URL",
+                            "value": "[reference(resourceId('Microsoft.Web/connections/', variables('connections_office365_name')), '2016-06-01','full').properties.connectionRuntimeUrl]"
+                        },
+                        {
+                            "name": "BLOB_CONNECTION_STRING",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=',parameters('logicappsStorageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('logicappsStorageAccountName')), '2019-06-01').keys[0].value,';EndpointSuffix=','core.windows.net')]"
+                        },
+                        {
+                            "name": "SUBSCRIPTION_ID",
+                            "value": "[parameters('subscriptionId')]"
+                        },
+                        {
+                            "name": "LOGICAPPS_RESOURCE_GROUP",
+                            "value": "[parameters('logicappsResourceGroup')]"
+                        },
+                        {
+                            "name": "RECIPIENT_ADDRESS",
+                            "value": "[parameters('recipientAddress')]"
+                        }
+                    ],
+                    "cors": {},
+                    "use32BitWorkerProcess": "[variables('use32BitWorkerProcess')]",
+                    "ftpsState": "[variables('ftpsState')]",
+                    "vnetPrivatePortsCount": "[variables('vnetPrivatePortsCount')]",
+                    "netFrameworkVersion": "[variables('netFrameworkVersion')]",
+                    "vnetBackupRestoreEnabled": true,
+                    "vnetContentShareEnabled": true,
+                    "vnetImagePullEnabled": true
+                },
+                "clientAffinityEnabled": false,
+                "virtualNetworkSubnetId": "[concat('/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('virtualNetworkResourceGroup'), '/providers/Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'), '/subnets/', parameters('vnetIntegrationSubnetName'))]",
+                "publicNetworkAccess": "Disabled",
+                "vnetRouteAllEnabled": true,
+                "httpsOnly": true,
+                "serverFarmId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourcegroups/', parameters('logicappsResourceGroup'), '/providers/Microsoft.Web/serverfarms/', parameters('hostingPlanName'))]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2018-11-01",
+            "name": "[parameters('hostingPlanName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [],
+            "tags": {},
+            "sku": {
+                "Tier": "[variables('sku')]",
+                "Name": "[variables('skuCode')]"
+            },
+            "kind": "",
+            "properties": {
+                "name": "[parameters('hostingPlanName')]",
+                "workerSize": "[variables('workerSize')]",
+                "workerSizeId": "[variables('workerSizeId')]",
+                "numberOfWorkers": "[variables('numberOfWorkers')]",
+                "maximumElasticWorkerCount": "20",
+                "zoneRedundant": false
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-07-01",
+            "name": "[variables('outboundSubnetDeployment')]",
+            "dependsOn": [],
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {},
+                    "variables": {},
+                    "resources": [
+                        {
+                            "type": "Microsoft.Network/virtualNetworks/subnets",
+                            "apiVersion": "2020-07-01",
+                            "name": "[concat(parameters('virtualNetworkName'), '/', parameters('vnetIntegrationSubnetName'))]",
+                            "properties": {
+                                "delegations": [
+                                    {
+                                        "name": "delegation",
+                                        "properties": {
+                                            "serviceName": "Microsoft.Web/serverfarms"
+                                        }
+                                    }
+                                ],
+                                "serviceEndpoints": [],
+                                "provisioningState": "Succeeded",
+                                "addressPrefixes": [
+                                    "10.0.0.32/27"
+                                ],
+                                "networkSecurityGroup": {
+                                    "id": "[concat('/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('virtualNetworkResourceGroup'), '/providers/Microsoft.Network/networkSecurityGroups/', parameters('vnetIntegrationSubnetNetworkSecurityGroupName'))]"
+                                },
+                                "natGateway": {
+                                    "id": "[concat('/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('virtualNetworkResourceGroup'), '/providers/Microsoft.Network/natGateways/', parameters('natGatewayName'))]"
+                                },
+                                "privateEndpointNetworkPolicies": "Disabled",
+                                "privateLinkServiceNetworkPolicies": "Enabled"
+                            }
+                        }
+                    ]
+                }
+            },
+            "subscriptionId": "[parameters('subscriptionId')]",
+            "resourceGroup": "[parameters('virtualNetworkResourceGroup')]"
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints",
+            "apiVersion": "2021-02-01",
+            "name": "[parameters('logicappsName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/Sites', parameters('logicappsName'))]"
+            ],
+            "properties": {
+                "subnet": {
+                    "id": "[concat('/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('virtualNetworkResourceGroup'), '/providers/Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'), '/subnets/', parameters('privateEndpointSubnetName'))]"
+                },
+                "privateLinkServiceConnections": [
+                    {
+                        "name": "[parameters('logicappsName')]",
+                        "properties": {
+                            "privateLinkServiceId": "[resourceId('Microsoft.Web/Sites', parameters('logicappsName'))]",
+                            "groupIds": [
+                                "sites"
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones",
+            "apiVersion": "2018-09-01",
+            "name": "[variables('inboundPrivateDnsZoneName')]",
+            "location": "global",
+            "dependsOn": [
+                "[parameters('logicappsName')]"
+            ]
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+            "apiVersion": "2020-03-01",
+            "name": "[concat(parameters('logicappsName'), '/', 'default')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[parameters('logicappsName')]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('inboundPrivateDNSZoneName'))]"
+            ],
+            "properties": {
+                "privateDnsZoneConfigs": [
+                    {
+                        "name": "[format('{0}-config', variables('inboundPrivateDnsZoneName'))]",
+                        "properties": {
+                            "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('inboundPrivateDnsZoneName'))]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+            "apiVersion": "2018-09-01",
+            "name": "[format('{0}/{1}', variables('inboundPrivateDnsZoneName'), format('{0}-link', parameters('logicappsName')))]",
+            "location": "global",
+            "dependsOn": [
+                "[parameters('logicappsName')]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('inboundPrivateDNSZoneName'))]"
+            ],
+            "properties": {
+                "virtualNetwork": {
+                    "id": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]"
+                },
+                "registrationEnabled": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints",
+            "apiVersion": "2021-02-01",
+            "name": "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageFileName'))]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('logicappsStorageAccountName'))]"
+            ],
+            "properties": {
+                "subnet": {
+                    "id": "[concat('/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('virtualNetworkResourceGroup'), '/providers/Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'), '/subnets/', parameters('privateEndpointSubnetName'))]"
+                },
+                "privateLinkServiceConnections": [
+                    {
+                        "name": "filePrivateLinkConnection",
+                        "properties": {
+                            "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('logicappsStorageAccountName'))]",
+                            "groupIds": [
+                                "file"
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints",
+            "apiVersion": "2021-02-01",
+            "name": "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageTableName'))]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('logicappsStorageAccountName'))]"
+            ],
+            "properties": {
+                "subnet": {
+                    "id": "[concat('/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('virtualNetworkResourceGroup'), '/providers/Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'), '/subnets/', parameters('privateEndpointSubnetName'))]"
+                },
+                "privateLinkServiceConnections": [
+                    {
+                        "name": "tablePrivateLinkConnection",
+                        "properties": {
+                            "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('logicappsStorageAccountName'))]",
+                            "groupIds": [
+                                "table"
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints",
+            "apiVersion": "2021-02-01",
+            "name": "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageBlobName'))]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('logicappsStorageAccountName'))]"
+            ],
+            "properties": {
+                "subnet": {
+                    "id": "[concat('/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('virtualNetworkResourceGroup'), '/providers/Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'), '/subnets/', parameters('privateEndpointSubnetName'))]"
+                },
+                "privateLinkServiceConnections": [
+                    {
+                        "name": "blobPrivateLinkConnection",
+                        "properties": {
+                            "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('logicappsStorageAccountName'))]",
+                            "groupIds": [
+                                "blob"
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints",
+            "apiVersion": "2021-02-01",
+            "name": "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageQueueName'))]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('logicappsStorageAccountName'))]"
+            ],
+            "properties": {
+                "subnet": {
+                    "id": "[concat('/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('virtualNetworkResourceGroup'), '/providers/Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'), '/subnets/', parameters('privateEndpointSubnetName'))]"
+                },
+                "privateLinkServiceConnections": [
+                    {
+                        "name": "queuePrivateLinkConnection",
+                        "properties": {
+                            "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('logicappsStorageAccountName'))]",
+                            "groupIds": [
+                                "queue"
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones",
+            "apiVersion": "2018-09-01",
+            "name": "[variables('privateStorageFileDnsZoneName')]",
+            "location": "global",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageFileName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+            "apiVersion": "2020-03-01",
+            "name": "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageFileName'), '/', variables('privateEndpointStorageFileName'))]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageFileName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageFileDnsZoneName'))]"
+            ],
+            "properties": {
+                "privateDnsZoneConfigs": [
+                    {
+                        "name": "config",
+                        "properties": {
+                            "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageFileDnsZoneName'))]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+            "apiVersion": "2018-09-01",
+            "name": "[format('{0}/{1}', variables('privateStorageFileDnsZoneName'), format('{0}-link', variables('privateStorageFileDnsZoneName')))]",
+            "location": "global",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageFileName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageFileDnsZoneName'))]"
+            ],
+            "properties": {
+                "virtualNetwork": {
+                    "id": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]"
+                },
+                "registrationEnabled": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones",
+            "apiVersion": "2018-09-01",
+            "name": "[variables('privateStorageTableDnsZoneName')]",
+            "location": "global",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageTableName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+            "apiVersion": "2020-03-01",
+            "name": "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageTableName'), '/', variables('privateEndpointStorageTableName'))]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageTableName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageTableDnsZoneName'))]"
+            ],
+            "properties": {
+                "privateDnsZoneConfigs": [
+                    {
+                        "name": "config",
+                        "properties": {
+                            "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageTableDnsZoneName'))]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+            "apiVersion": "2018-09-01",
+            "name": "[format('{0}/{1}', variables('privateStorageTableDnsZoneName'), format('{0}-link', variables('privateStorageTableDnsZoneName')))]",
+            "location": "global",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageTableName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageTableDnsZoneName'))]"
+            ],
+            "properties": {
+                "virtualNetwork": {
+                    "id": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]"
+                },
+                "registrationEnabled": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones",
+            "apiVersion": "2018-09-01",
+            "name": "[variables('privateStorageBlobDnsZoneName')]",
+            "location": "global",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageBlobName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+            "apiVersion": "2020-03-01",
+            "name": "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageBlobName'), '/', variables('privateEndpointStorageBlobName'))]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageBlobName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageBlobDnsZoneName'))]"
+            ],
+            "properties": {
+                "privateDnsZoneConfigs": [
+                    {
+                        "name": "config",
+                        "properties": {
+                            "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageBlobDnsZoneName'))]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+            "apiVersion": "2018-09-01",
+            "name": "[format('{0}/{1}', variables('privateStorageBlobDnsZoneName'), format('{0}-link', variables('privateStorageBlobDnsZoneName')))]",
+            "location": "global",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageBlobName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageBlobDnsZoneName'))]"
+            ],
+            "properties": {
+                "virtualNetwork": {
+                    "id": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]"
+                },
+                "registrationEnabled": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones",
+            "apiVersion": "2018-09-01",
+            "name": "[variables('privateStorageQueueDnsZoneName')]",
+            "location": "global",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageQueueName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+            "apiVersion": "2020-03-01",
+            "name": "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageQueueName'), '/', variables('privateEndpointStorageQueueName'))]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageQueueName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageQueueDnsZoneName'))]"
+            ],
+            "properties": {
+                "privateDnsZoneConfigs": [
+                    {
+                        "name": "config",
+                        "properties": {
+                            "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageQueueDnsZoneName'))]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+            "apiVersion": "2018-09-01",
+            "name": "[format('{0}/{1}', variables('privateStorageQueueDnsZoneName'), format('{0}-link', variables('privateStorageQueueDnsZoneName')))]",
+            "location": "global",
+            "dependsOn": [
+                "[concat(parameters('logicappsName'), '-', variables('privateEndpointStorageQueueName'))]",
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateStorageQueueDnsZoneName'))]"
+            ],
+            "properties": {
+                "virtualNetwork": {
+                    "id": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]"
+                },
+                "registrationEnabled": false
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2022-05-01",
+            "name": "[parameters('logicappsStorageAccountName')]",
+            "location": "[parameters('location')]",
+            "tags": {},
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "StorageV2",
+            "properties": {
+                "supportsHttpsTrafficOnly": true,
+                "minimumTlsVersion": "TLS1_2",
+                "defaultToOAuthAuthentication": true
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[variables('connections_office365_name')]",
+            "location": "[parameters('location')]",
+            "kind": "V2",
+            "properties": {
+                "displayName": "outlook mail",
+                "statuses": [
+                    {
+                        "status": "Connected"
+                    }
+                ],
+                "customParameterValues": {},
+                "nonSecretParameterValues": {},
+                "api": {
+                    "name": "[variables('connections_office365_name')]",
+                    "displayName": "Office 365 Outlook",
+                    "description": "Microsoft Office 365 is a cloud-based service that is designed to help meet your organization's needs for robust security, reliability, and user productivity.",
+                    "iconUri": "[concat('https://connectoricons-prod.azureedge.net/releases/v1.0.1676/1.0.1676.3617/', variables('connections_office365_name'), '/icon.png')]",
+                    "brandColor": "#0078D4",
+                    "id": "[concat('/subscriptions/', parameters('subscriptionId'), '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/', variables('connections_office365_name'))]",
+                    "type": "Microsoft.Web/locations/managedApis"
+                },
+                "testLinks": [
+                    {
+                        "requestUri": "[concat('https://management.azure.com:443/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('logicappsResourceGroup'), '/providers/Microsoft.Web/connections/', variables('connections_office365_name'), '/extensions/proxy/testconnection?api-version=2016-06-01')]",
+                        "method": "get"
+                    }
+                ]
+            }
+        }
+    ]
+}

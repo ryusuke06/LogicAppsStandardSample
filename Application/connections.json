@@ -1,0 +1,28 @@
+{
+  "serviceProviderConnections": {
+    "AzureBlob": {
+      "parameterValues": {
+        "connectionString": "@appsetting('BLOB_CONNECTION_STRING')"
+      },
+      "parameterSetName": "connectionString",
+      "serviceProvider": {
+        "id": "/serviceProviders/AzureBlob"
+      },
+      "displayName": "connect-stlogicappstestjpe01"
+    }
+  },
+  "managedApiConnections": {
+    "office365": {
+      "api": {
+        "id": "/subscriptions/@appsetting('SUBSCRIPTION_ID')/providers/Microsoft.Web/locations/japaneast/managedApis/office365"
+      },
+      "connection": {
+        "id": "/subscriptions/@appsetting('SUBSCRIPTION_ID')/resourceGroups/@appsetting('LOGICAPPS_RESOURCE_GROUP')/providers/Microsoft.Web/connections/office365"
+      },
+      "authentication": {
+        "type": "ManagedServiceIdentity"
+      },
+      "connectionRuntimeUrl": "@appsetting('OUTLOOK_CONNECTION_RUNTIME_URL')"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "actions": {
+      "メールの送信_(V2)_1": {
+        "type": "ApiConnection",
+        "inputs": {
+          "host": {
+            "connection": {
+              "referenceName": "office365"
+            }
+          },
+          "method": "post",
+          "body": {
+            "To": "@parameters('RECIPIENT_ADDRESS')",
+            "Subject": "【至急】なんか変更あったよ！【対応】",
+            "Body": "<p>以下がtest.txtの中身です</p><p>```</p><p>@{body('Read_blob_content')?['content']}</p><p>```</p>",
+            "Importance": "High"
+          },
+          "path": "/v2/Mail"
+        },
+        "runAfter": {
+          "Read_blob_content": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "Read_blob_content": {
+        "type": "ServiceProvider",
+        "inputs": {
+          "parameters": {
+            "containerName": "testcontainer",
+            "blobName": "test.txt"
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "AzureBlob",
+            "operationId": "readBlob",
+            "serviceProviderId": "/serviceProviders/AzureBlob"
+          }
+        },
+        "runAfter": {}
+      }
+    },
+    "contentVersion": "1.0.0.0",
+    "outputs": {},
+    "triggers": {
+      "When_a_HTTP_request_is_received": {
+        "type": "Request",
+        "kind": "Http",
+        "inputs": {
+          "method": "GET"
+        }
+      }
+    }
+  },
+  "kind": "Stateful"
+}
