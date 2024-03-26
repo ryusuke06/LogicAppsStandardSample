@@ -162,15 +162,15 @@
                     "use32BitWorkerProcess": "[variables('use32BitWorkerProcess')]",
                     "ftpsState": "[variables('ftpsState')]",
                     "vnetPrivatePortsCount": "[variables('vnetPrivatePortsCount')]",
-                    "netFrameworkVersion": "[variables('netFrameworkVersion')]",
-                    "vnetBackupRestoreEnabled": true,
-                    "vnetContentShareEnabled": true,
-                    "vnetImagePullEnabled": true
+                    "netFrameworkVersion": "[variables('netFrameworkVersion')]"
                 },
                 "clientAffinityEnabled": false,
                 "virtualNetworkSubnetId": "[concat('/subscriptions/', parameters('subscriptionId'), '/resourceGroups/', parameters('virtualNetworkResourceGroup'), '/providers/Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'), '/subnets/', parameters('vnetIntegrationSubnetName'))]",
                 "publicNetworkAccess": "Disabled",
                 "vnetRouteAllEnabled": true,
+                "vnetBackupRestoreEnabled": true,
+                "vnetContentShareEnabled": true,
+                "vnetImagePullEnabled": true,
                 "httpsOnly": true,
                 "serverFarmId": "[concat('/subscriptions/', parameters('subscriptionId'),'/resourcegroups/', parameters('logicappsResourceGroup'), '/providers/Microsoft.Web/serverfarms/', parameters('hostingPlanName'))]"
             }
